@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ExecutionEngine, ExecutionHandle, ExecutionRequest } from '../services/execution/types'
 import type { ExecutionLogLine, StepResult, TestExecution } from '../types/domain'
 
-export type RunStatus = 'idle' | 'running' | 'done' | 'aborted'
+export type RunStatus = 'idle' | 'running' | 'done' | 'aborted' | 'error'
 
 export interface ExecutionState {
   status: RunStatus
@@ -10,6 +10,7 @@ export interface ExecutionState {
   results: Record<string, StepResult>
   log: ExecutionLogLine[]
   execution?: TestExecution
+  error?: string
 }
 
 const initial: ExecutionState = { status: 'idle', results: {}, log: [] }
@@ -50,6 +51,11 @@ export function useExecution(engine: ExecutionEngine, seed?: TestExecution) {
           if (!mounted.current) return
           setState((s) => ({ ...s, status: execution.verdict === 'aborted' ? 'aborted' : 'done', activeStepId: undefined, execution }))
           onComplete?.(execution)
+        },
+        onError: (message) => {
+          handle.current = null
+          if (!mounted.current) return
+          setState((s) => ({ ...s, status: 'error', activeStepId: undefined, error: message, log: [...s.log, { ts: new Date().toLocaleTimeString(), level: 'error', message }] }))
         },
       })
     },

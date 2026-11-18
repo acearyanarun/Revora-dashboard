@@ -26,8 +26,8 @@ export const WORKFLOW_LABELS = [
   'Incident Analysis',
   'Test Generated',
   'Reproduction',
-  'Fix Validation',
   'Regression Saved',
+  'Fix Validation',
 ] as const
 
 export function workflowStages(p: InvestigationProgress): WorkflowStage[] {
@@ -36,8 +36,8 @@ export function workflowStages(p: InvestigationProgress): WorkflowStage[] {
     { done: p.analysisComplete, detail: ['Findings recorded', 'Not started'] },
     { done: p.scenarioGenerated, detail: ['Scenario ready', 'Not generated'] },
     { done: p.reproduction === 'reproduced', failed: p.reproduction === 'not_reproduced', detail: ['Target failure reproduced', 'Not run'] },
-    { done: p.validation === 'validated', failed: p.validation === 'not_validated', detail: ['Correction passes scenario', 'Not run'] },
     { done: p.regressionSaved, detail: ['Saved to library', 'Not saved'] },
+    { done: p.validation === 'validated', failed: p.validation === 'not_validated', detail: ['Correction passes scenario', 'Not run'] },
   ]
   let currentAssigned = false
   return raw.map((r, i) => {
@@ -67,6 +67,6 @@ export const toneClasses: Record<Tone, { dot: string; text: string; bg: string; 
 
 export const regressionStatus: Record<RegressionTest['status'], { label: string; tone: 'green' | 'gray' | 'red' }> = {
   active: { label: 'Passing', tone: 'green' },
-  draft: { label: 'Draft · awaiting fix validation', tone: 'gray' },
-  failing: { label: 'Failing on current build', tone: 'red' },
+  draft: { label: 'Candidate · not executed', tone: 'gray' },
+  failing: { label: 'Known failure', tone: 'red' },
 }

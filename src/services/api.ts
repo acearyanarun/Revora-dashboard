@@ -52,6 +52,7 @@ export async function readEvidenceFile(file: File): Promise<Evidence> {
     }
   }
   const lines = text.split(/\r?\n/)
+  const maxStoredChars = 128_000
   return {
     id: `upl-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
     kind: ext === '.json' ? 'device_config' : 'device_log',
@@ -61,7 +62,8 @@ export async function readEvidenceFile(file: File): Promise<Evidence> {
     lineCount: lines.length,
     addedAt: new Date().toISOString(),
     preview: lines.slice(0, 6).join('\n'),
-    note,
+    rawText: text.slice(0, maxStoredChars),
+    note: [note, text.length > maxStoredChars ? 'Only the first 128,000 characters are retained locally; keep the original log for full analysis.' : undefined].filter(Boolean).join(' · ') || undefined,
   }
 }
 

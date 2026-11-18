@@ -12,7 +12,7 @@ import { useWorkspace } from '../state/context'
 
 export function InvestigationDetailPage() {
   const { id = '' } = useParams()
-  const { incidents, devices, progress, statusOf, regressionTests } = useWorkspace()
+  const { incidents, devices, progress, statusOf, regressionTests, createScenarioCandidate } = useWorkspace()
   const navigate = useNavigate()
   const incident = incidents.find((i) => i.id === id)
   const [selectedEvent, setSelectedEvent] = useState<string | undefined>(() => incident?.timeline.find((e) => e.severity === 'failure')?.id)
@@ -37,7 +37,12 @@ export function InvestigationDetailPage() {
     document.getElementById('timeline')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
-  const generate = () => navigate(`/lab/${incident.id}${prog.scenarioGenerated ? '' : '?generate=1'}`)
+  const hasUsableLog = incident.evidence.some((e) => e.kind === 'device_log' && !!e.rawText) && incident.timeline.length > 0
+  const canGenerate = !!incident.scenarioId || hasUsableLog
+  const generate = () => {
+    if (!incident.scenarioId && hasUsableLog) createScenarioCandidate(incident.id)
+    navigate(`/lab/${incident.id}${prog.scenarioGenerated ? '' : '?generate=1'}`)
+  }
 
   return (
     <div className="animate-in">
@@ -54,7 +59,7 @@ export function InvestigationDetailPage() {
           <div className="mb-2 flex flex-wrap items-center gap-2">
             <span className="mono rounded bg-line px-1.5 py-0.5 text-[12px] text-muted">{incident.id}</span>
             <StatusBadge status={status} />
-            <DemoBadge>Sample incident</DemoBadge>
+            {incident.id.startsWith('INC-00') && <DemoBadge>Sample incident</DemoBadge>}
           </div>
           <h1 className="text-[21px] leading-snug font-semibold tracking-tight text-balance">{incident.title}</h1>
           <p className="mt-1.5 text-[13px] text-muted">
@@ -76,8 +81,8 @@ export function InvestigationDetailPage() {
             variant="primary"
             icon={<FlaskConical className="size-4" />}
             onClick={generate}
-            disabled={!incident.scenarioId}
-            title={incident.scenarioId ? undefined : 'More evidence is needed before a scenario can be generated'}
+            disabled={!canGenerate}
+            title={canGenerate ? undefined : 'Upload a timestamped ESP-IDF connectivity log before creating a candidate'}
           >
             {prog.scenarioGenerated ? 'Open in Reproduction Lab' : 'Generate Reproduction Scenario'}
           </Button>
@@ -115,11 +120,13 @@ export function InvestigationDetailPage() {
                     <Info className="mt-0.5 size-3.5 shrink-0 text-sky-300" />
                     <span>
                       {incident.scenarioId
-                        ? 'The two testable hypotheses can be exercised by a reproduction scenario that replays the outage against the application logic.'
-                        : 'Add the missing evidence before a reproduction scenario can be generated.'}
+                        ? 'A scenario candidate is available. A real run is still required to verify the hypothesis.'
+                        : hasUsableLog
+                          ? 'A test candidate can be drafted from the observed connectivity events. Fault timings need engineer review.'
+                          : 'Upload an ESP-IDF serial log with timestamps and connectivity events to create a candidate.'}
                     </span>
                   </div>
-                  <Button variant="primary" icon={<FlaskConical className="size-4" />} onClick={generate} disabled={!incident.scenarioId} className="shrink-0">
+                  <Button variant="primary" icon={<FlaskConical className="size-4" />} onClick={generate} disabled={!canGenerate} className="shrink-0">
                     Generate Reproduction Scenario
                   </Button>
                 </div>
@@ -138,6 +145,7 @@ export function InvestigationDetailPage() {
               items={[
                 { k: 'Device', v: device?.name ?? '—' },
                 { k: 'Firmware', v: <span className="mono">{incident.firmwareVersion}</span> },
+                ...(incident.firmwareSourceRef ? [{ k: 'Source reference', v: <span className="mono" title={incident.firmwareSourceRef}>{incident.firmwareSourceRef}</span> }] : []),
                 { k: 'Framework', v: incident.framework },
                 { k: 'Failure category', v: incident.failureCategory },
                 { k: 'First reported', v: formatDate(incident.firstReportedAt) },

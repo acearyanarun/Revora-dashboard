@@ -37,6 +37,10 @@ export class DemoExecutionEngine implements ExecutionEngine {
   }
 
   run(request: ExecutionRequest, listener: ExecutionListener) {
+    if (request.scenario.id !== 'scn-mqtt-recovery') {
+      listener.onError?.('The browser demo only contains a scripted execution for sample INC-001. A physical runner is required for this scenario.')
+      return { stop() {} }
+    }
     const script = demoScripts[request.variant]
     const startedAt = new Date().toISOString()
     const log: ExecutionLogLine[] = []

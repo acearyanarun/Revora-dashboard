@@ -103,14 +103,14 @@ export function EvidenceUploader({ incidentId }: { incidentId: string }) {
         <input ref={input} type="file" multiple accept={ACCEPTED_EVIDENCE.join(',')} className="sr-only" onChange={(e) => void handle(e.target.files)} />
       </label>
       {error && <p className="mt-2 text-[11.5px] text-rose-300" role="alert">{error}</p>}
-      <p className="mt-2 text-[11px] leading-snug text-faint">Files are read in your browser and held in memory for this session only. Nothing is sent to a server in the prototype.</p>
+      <p className="mt-2 text-[11px] leading-snug text-faint">Parsed observations and a bounded log excerpt are retained in this browser’s local storage. Nothing is sent to a server. Keep the original log and clear browser storage when handling sensitive data.</p>
     </div>
   )
 }
 
-function RepoReference({ incidentId }: { incidentId: string }) {
+function RepoReference({ incidentId, initialValue }: { incidentId: string; initialValue?: string }) {
   const { repoRefs, setRepoRef } = useWorkspace()
-  const saved = repoRefs[incidentId]
+  const saved = repoRefs[incidentId] ?? initialValue
   const [value, setValue] = useState(saved ?? '')
   const [error, setError] = useState<string | null>(null)
 
@@ -159,6 +159,7 @@ function RepoReference({ incidentId }: { incidentId: string }) {
 
 export function EvidencePanel({ incident }: { incident: Incident }) {
   const present = new Set(incident.evidence.map((e) => e.kind))
+  if (incident.firmwareSourceRef) present.add('firmware_source_ref')
   const expected: EvidenceKind[] = ['device_log', 'firmware_source_ref', 'customer_report', 'device_config', 'network_events']
   return (
     <div className="flex flex-col gap-4">
@@ -185,7 +186,7 @@ export function EvidencePanel({ incident }: { incident: Incident }) {
         <p className="text-xs text-muted">No evidence attached yet.</p>
       )}
       <EvidenceUploader incidentId={incident.id} />
-      <RepoReference incidentId={incident.id} />
+      <RepoReference incidentId={incident.id} initialValue={incident.firmwareSourceRef} />
     </div>
   )
 }

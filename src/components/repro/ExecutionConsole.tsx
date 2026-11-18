@@ -45,11 +45,11 @@ export function ExecutionConsole({
         <span
           className={clsx(
             'ml-auto inline-flex items-center gap-1.5 text-[11px]',
-            status === 'running' ? 'text-sky-300' : status === 'done' ? 'text-muted' : status === 'aborted' ? 'text-amber-300' : 'text-faint',
+            status === 'running' ? 'text-sky-300' : status === 'done' ? 'text-muted' : status === 'error' ? 'text-rose-300' : status === 'aborted' ? 'text-amber-300' : 'text-faint',
           )}
         >
           <span className={clsx('size-1.5 rounded-full', status === 'running' ? 'animate-pulse bg-sky-400' : status === 'aborted' ? 'bg-amber-400' : 'bg-slate-600')} />
-          {status === 'running' ? 'Running' : status === 'done' ? 'Finished' : status === 'aborted' ? 'Stopped' : 'Idle'}
+          {status === 'running' ? 'Running' : status === 'done' ? 'Finished' : status === 'aborted' ? 'Stopped' : status === 'error' ? 'Runner error' : 'Idle'}
         </span>
       </div>
       {progress != null && (

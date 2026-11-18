@@ -5,6 +5,7 @@ export function ExecutionControls({
   generated,
   generating,
   running,
+  canRun = true,
   onGenerate,
   onRun,
   onStop,
@@ -14,6 +15,7 @@ export function ExecutionControls({
   generated: boolean
   generating: boolean
   running: boolean
+  canRun?: boolean
   onGenerate: () => void
   onRun: () => void
   onStop: () => void
@@ -30,7 +32,7 @@ export function ExecutionControls({
       >
         {generating ? 'Generating…' : generated ? 'Regenerate Test' : 'Generate Test'}
       </Button>
-      <Button variant={generated ? 'primary' : 'secondary'} onClick={onRun} disabled={!generated || generating || running} icon={<Play className="size-3.5" />}>
+      <Button variant={generated ? 'primary' : 'secondary'} onClick={onRun} disabled={!generated || generating || running || !canRun} icon={<Play className="size-3.5" />}>
         Run Reproduction
       </Button>
       <Button variant="danger" onClick={onStop} disabled={!running} icon={<Square className="size-3" />}>

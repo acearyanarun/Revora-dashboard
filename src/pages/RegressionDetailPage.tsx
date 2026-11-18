@@ -19,13 +19,16 @@ export function RegressionDetailPage() {
   const incident = incidents.find((i) => i.id === test.originIncidentId)
   const scenario = scenarios.find((s) => s.testName === test.name)
   const validation = validations.find((v) => v.scenarioId === scenario?.id)
-  // Only tests backed by a scenario script can be re-run in the demo engine.
-  const rerunnable = !!scenario && test.status === 'active' && !!validation
+  const rerunnable = !!scenario && test.status !== 'draft' && (api.executionEngine.kind === 'remote-runner' ? !!scenario.reviewed : !!validation && scenario.provenance !== 'log-derived')
+  const variant = test.status === 'active' ? 'corrected' : 'original'
+  const firmwareRef = variant === 'corrected'
+    ? validation?.correctionRef ?? test.history.find((h) => h.verdict === 'passed')?.firmwareRef ?? test.firmwareVersion
+    : test.history.find((h) => h.verdict === 'failed')?.firmwareRef ?? test.firmwareVersion
 
   const rerun = () => {
-    if (!scenario || !validation) return
-    exec.run({ scenario, variant: 'corrected', firmwareRef: validation.correctionRef }, (e) => {
-      if (e.verdict !== 'aborted') recordRegressionRun(test.id, e.verdict === 'passed' ? 'passed' : 'failed', validation.correctionRef, 'Re-run (demo simulation)')
+    if (!scenario || !rerunnable) return
+    exec.run({ scenario, variant, firmwareRef }, (e) => {
+      if (e.verdict !== 'aborted') recordRegressionRun(test.id, e.verdict === 'passed' ? 'passed' : 'failed', firmwareRef, `Re-run (${e.engine})`)
     })
   }
 
@@ -49,14 +52,14 @@ export function RegressionDetailPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => downloadText(`test_${test.name}.c`, test.code, 'text/x-c')} icon={<Download className="size-3.5" />}>
+          <Button onClick={() => downloadText(`test_${test.name}.${scenario?.codeFormat === 'json' ? 'json' : 'c'}`, test.code, scenario?.codeFormat === 'json' ? 'application/json' : 'text/x-c')} icon={<Download className="size-3.5" />}>
             Export test
           </Button>
           <Button
             variant="primary"
             onClick={rerun}
             disabled={!rerunnable || exec.state.status === 'running'}
-            title={rerunnable ? undefined : test.status === 'draft' ? 'Validate a fix and save the test before re-running' : 'Re-run is only scripted for INC-001 in this demo'}
+            title={rerunnable ? undefined : 'A compatible execution engine and an approved scenario are required.'}
             icon={<Play className="size-3.5" />}
           >
             Rerun test
@@ -66,7 +69,7 @@ export function RegressionDetailPage() {
 
       {exec.state.status !== 'idle' && (
         <div className="mb-5">
-          <ExecutionConsole log={exec.state.log} status={exec.state.status} height="h-[200px]" title={`rerun · ${validation?.correctionRef} · demo simulation`} resultTone="pass" />
+          <ExecutionConsole log={exec.state.log} status={exec.state.status} height="h-[200px]" title={`rerun · ${firmwareRef} · ${api.executionEngine.label}`} resultTone="pass" />
         </div>
       )}
 
@@ -75,7 +78,7 @@ export function RegressionDetailPage() {
           <Panel title="Expected behavior" icon={<Target className="size-4" />}>
             <p className="text-[13.5px] leading-relaxed text-fg/90">{test.expectedBehavior}</p>
           </Panel>
-          <Panel title="Generated test code" subtitle={`test_${test.name}.c`} bodyClassName="p-3">
+          <Panel title={scenario?.codeFormat === 'json' ? 'Reviewed test specification' : 'Illustrative test code'} subtitle={`test_${test.name}.${scenario?.codeFormat === 'json' ? 'json' : 'c'}`} bodyClassName="p-3">
             <CodeBlock code={test.code} maxHeight="max-h-[480px]" />
           </Panel>
         </div>
@@ -122,7 +125,7 @@ export function RegressionDetailPage() {
                 ))}
               </ol>
             ) : (
-              <p className="text-xs text-muted">No executions recorded. This test is a draft until a correction is validated.</p>
+              <p className="text-xs text-muted">No executions recorded. Run the scenario on a selected firmware build to collect evidence.</p>
             )}
           </Panel>
           <Panel title="Validation evidence" icon={<FileCheck2 className="size-4" />}>

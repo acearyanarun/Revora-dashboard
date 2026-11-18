@@ -25,6 +25,7 @@ export interface ExecutionListener {
   onLog?(line: ExecutionLogLine): void
   onStepComplete?(result: StepResult): void
   onComplete?(execution: TestExecution): void
+  onError?(message: string): void
 }
 
 export interface ExecutionHandle {

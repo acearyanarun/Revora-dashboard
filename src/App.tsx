@@ -1,7 +1,6 @@
 import { HashRouter, Route, Routes, useParams } from 'react-router-dom'
 import { DashboardLayout } from './components/layout/DashboardLayout'
 import { EmptyState, LinkButton } from './components/ui/primitives'
-import { DevicesPage } from './pages/DevicesPage'
 import { FixValidationPage } from './pages/FixValidationPage'
 import { InvestigationDetailPage } from './pages/InvestigationDetailPage'
 import { InvestigationsPage } from './pages/InvestigationsPage'
@@ -10,8 +9,6 @@ import { OverviewPage } from './pages/OverviewPage'
 import { RegressionDetailPage } from './pages/RegressionDetailPage'
 import { RegressionLibraryPage } from './pages/RegressionLibraryPage'
 import { ReproductionLabPage } from './pages/ReproductionLabPage'
-import { RoadmapPage } from './pages/RoadmapPage'
-import { SettingsPage } from './pages/SettingsPage'
 import type { RevoraApi } from './services/api'
 import { useWorkspace } from './state/context'
 import { WorkspaceProvider } from './state/workspace'
@@ -36,9 +33,6 @@ function Routed() {
         <Route path="lab/:incidentId/validation" element={<Keyed param="incidentId">{(k) => <FixValidationPage key={k} />}</Keyed>} />
         <Route path="regression" element={<RegressionLibraryPage />} />
         <Route path="regression/:testId" element={<Keyed param="testId">{(k) => <RegressionDetailPage key={k} />}</Keyed>} />
-        <Route path="devices" element={<DevicesPage />} />
-        <Route path="settings" element={<SettingsPage />} />
-        <Route path="roadmap" element={<RoadmapPage />} />
         <Route
           path="*"
           element={

@@ -78,7 +78,7 @@ function Swimlane({ incident, selected, onSelect }: { incident: Incident; select
         <span className="inline-flex items-center gap-1.5"><span className="h-2 w-4 rounded-sm bg-emerald-400/40" />Connected</span>
         <span className="inline-flex items-center gap-1.5"><span className="hatch h-2 w-4 rounded-sm ring-1 ring-rose-400/40" />Down</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-2 w-4 rounded-sm border border-dashed border-amber-400/50" />State not observed in logs</span>
-        <span className="ml-auto">Window starts {incident.timelineWindow?.start} (device local time)</span>
+        <span className="ml-auto">{incident.timelineWindow?.start ? `Window starts ${incident.timelineWindow.start} (device local time)` : 'Relative time from first parsed ESP-IDF event'}</span>
       </div>
     </div>
   )

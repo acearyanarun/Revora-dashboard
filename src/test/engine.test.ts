@@ -60,6 +60,12 @@ describe('DemoExecutionEngine', () => {
     expect(interpret('corrected', 'failed')).toBe('target_failure_reproduced')
     expect(interpret('original', 'aborted')).toBe('aborted')
   })
+
+  it('refuses to replay the seed script for user-created scenarios', () => {
+    const onError = vi.fn()
+    new DemoExecutionEngine({ lineDelayMs: 0 }).run({ scenario: { ...scenario, id: 'candidate-custom' }, variant: 'original', firmwareRef: 'abc' }, { onError })
+    expect(onError).toHaveBeenCalledWith(expect.stringContaining('only contains a scripted execution'))
+  })
 })
 
 describe('workflow', () => {

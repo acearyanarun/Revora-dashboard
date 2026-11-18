@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Boxes, Cpu, FlaskConical, LayoutDashboard, Library, Map, Search, Settings } from 'lucide-react'
+import { Boxes, FlaskConical, LayoutDashboard, Library, RotateCcw, Search } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
 import { useWorkspace } from '../../state/context'
 
@@ -8,8 +8,6 @@ const primary = [
   { to: '/investigations', label: 'Investigations', icon: Search },
   { to: '/lab', label: 'Reproduction Lab', icon: FlaskConical },
   { to: '/regression', label: 'Regression Library', icon: Library },
-  { to: '/devices', label: 'Devices', icon: Cpu },
-  { to: '/settings', label: 'Settings', icon: Settings },
 ]
 
 export function RevoraMark({ className }: { className?: string }) {
@@ -23,8 +21,8 @@ export function RevoraMark({ className }: { className?: string }) {
 }
 
 export function SidebarNavigation({ onNavigate }: { onNavigate?: () => void }) {
-  const { incidents, progress } = useWorkspace()
-  const open = incidents.filter((i) => !progress[i.id]?.regressionSaved).length
+  const { incidents, statusOf, resetDemo, api } = useWorkspace()
+  const open = incidents.filter((i) => !['fix_validated'].includes(statusOf(i))).length
 
   const item = (to: string, label: string, Icon: typeof Boxes, end?: boolean, badge?: number) => (
     <NavLink
@@ -69,12 +67,11 @@ export function SidebarNavigation({ onNavigate }: { onNavigate?: () => void }) {
       </div>
 
       <div className="mt-auto flex flex-col gap-3">
-        <div className="flex flex-col gap-0.5">
-          <div className="label px-2.5 pb-1">Later</div>
-          {item('/roadmap', 'Future Capabilities', Map)}
-        </div>
+        <button type="button" onClick={() => { if (window.confirm('Reset sample investigations and clear locally saved workspace changes?')) void resetDemo() }} className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[12px] text-muted hover:bg-hover/60 hover:text-fg">
+          <RotateCcw className="size-3.5" /> Reset demo workspace
+        </button>
         <div className="rounded-md border border-dashed border-amber-400/30 bg-amber-400/5 px-2.5 py-2 text-[11.5px] leading-snug text-amber-100/80">
-          <span className="font-semibold text-amber-200">Prototype.</span> All data is sample data and executions are a browser-side demo simulation.
+          <span className="font-semibold text-amber-200">Prototype.</span> {api.isDemo ? 'Sample runs are scripted; new evidence remains in this browser.' : 'Remote execution is configured; sample incidents remain illustrative.'}
         </div>
       </div>
     </nav>

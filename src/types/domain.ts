@@ -73,6 +73,8 @@ export interface Evidence {
   addedAt: ISODateString
   /** Short preview of contents, if available. */
   preview?: string
+  /** Bounded browser-local excerpt for candidate generation. Not an archival copy. */
+  rawText?: string
   note?: string
 }
 
@@ -121,6 +123,7 @@ export interface Incident {
   deviceId: string
   firmwareVersion: string
   framework: FirmwareFramework
+  firmwareSourceRef?: string
   failureCategory: string
   failureMode: string
   customerSymptom: string
@@ -158,13 +161,19 @@ export interface ReproductionScenario {
   testCode: string
   /** Signature that must appear for a run to count as reproducing the field failure. */
   targetFailureSignature: string[]
+  /** A sample C illustration or a log-derived, human-reviewable runner specification. */
+  codeFormat?: 'c' | 'json'
+  provenance?: 'sample' | 'log-derived'
+  reviewed?: boolean
+  outageSeconds?: number
+  recoverySeconds?: number
 }
 
 export interface ExecutionEnvironment {
   target: string
   framework: FirmwareFramework
   mode: ExecutionMode
-  network: 'Simulated'
+  network: 'Simulated' | 'Controlled AP'
   mqttBroker: 'Test Environment'
   firmwareVersion: string
   engine: 'demo-simulation' | 'remote-runner'
@@ -203,6 +212,16 @@ export interface TestExecution {
    * the original firmware is a *successful reproduction*.
    */
   interpretation: 'target_failure_reproduced' | 'target_not_reproduced' | 'recovery_verified' | 'aborted'
+  /** Measurements supplied by a real runner; never inferred from scripted log lines. */
+  measurements?: {
+    boardId?: string
+    brokerMessagesReceived?: number
+    recoveryTimeMs?: number
+    attempts?: number
+    reproducedAttempts?: number
+    serialLogArtifact?: string
+    brokerCaptureArtifact?: string
+  }
 }
 
 export interface ValidationCheck {

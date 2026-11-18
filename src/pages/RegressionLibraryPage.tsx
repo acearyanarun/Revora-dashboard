@@ -21,7 +21,7 @@ export function RegressionLibraryPage() {
       <PageHeader
         eyebrow={<DemoBadge />}
         title="Regression Library"
-        subtitle="Executable tests derived from past investigations. Each one encodes a field failure so future firmware releases are checked against it."
+        subtitle="Reproduction plans and regression checks preserved from investigations. Verify engine type and execution evidence before relying on a result."
       />
       <Panel bodyClassName="">
         <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">

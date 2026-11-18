@@ -1,73 +1,84 @@
-# Revora — Engineering Dashboard (prototype)
+# Revora — field failure reproduction dashboard
 
-Frontend prototype for Revora: turning customer-reported IoT firmware failures (initially ESP32 / ESP-IDF connectivity-recovery bugs) into executable reproduction tests.
+An intentionally narrow engineering workspace for **ESP32 / ESP-IDF Wi-Fi and MQTT recovery failures**: customer evidence → reviewable reproduction candidate → measured execution → saved regression test → optional corrected-build comparison.
 
-> **Prototype.** All data is sample data. Test executions are a deterministic **browser-side demo simulation** — no ESP-IDF firmware is compiled or executed.
-
-## Run
+## Run the frontend
 
 ```bash
-npm install
-npm run dev          # http://localhost:5173
-npm run build        # type-check + production build to dist/
-npm run build:single # one self-contained dist/index.html (for static hosting / demos)
-npm run lint         # oxlint
-npm test             # vitest (engine, workflow, upload, and UI flow tests)
+npm ci
+npm run dev
+npm test
+npm run lint
+npm run build
 ```
 
-Stack: React 19, TypeScript, Vite, Tailwind CSS v4, React Router (hash routing), lucide-react.
+The default is **DEMO mode**. The seeded INC-001 sample is a browser-only scripted story. It does **not** compile C, flash a board, observe MQTT packets, run a model, or prove a real firmware defect. Its exported C code uses illustrative headers and is **not compilable without a separate harness**.
 
-## Demo walkthrough
+## What's functional today
 
-1. **Overview** → click **INC-001** (or "Open INC-001").
-2. **Investigation workspace** → inspect the swimlane timeline, click events to see raw ESP-IDF log lines, review Observed Facts / Hypotheses / Missing Evidence / Confirmed Findings, upload a `.log`/`.txt`/`.json`, add a repo URL (reference only).
-3. **Generate Reproduction Scenario** → steps are generated with traceability back to the evidence.
-4. **Run Reproduction** → steps execute sequentially, logs stream, the recovery assertion fails → **Target Failure Reproduced**. Workflow and findings update.
-5. **Fix Validation** → run original vs. corrected builds side by side; checks flip FAIL → PASS. Save as a regression test.
-6. **Regression Library** → test is now Passing with execution history and validation evidence; rerun or export the `.c` file.
+- Create investigations for ESP-IDF Wi-Fi/MQTT incidents, including customer symptoms, firmware version, and source reference.
+- Upload `.log`, `.txt`, or `.json` evidence (up to 5 MB). A conservative parser recognizes **timestamped ESP-IDF connectivity events** and shows raw source-line references. Findings from uploaded logs are explicitly observations or unverified hypotheses.
+- Produce a **review-required JSON hardware-test plan** from a parsed connectivity log. Engineers can set the AP outage duration and the broker recovery deadline. These values are assumptions; Revora does not invent measurements.
+- Store new investigations, a bounded log excerpt (max 128,000 characters per upload), parsed events, review state, and test history in the browser's `localStorage`. The full original upload is **not archived**. No backend receives the file. Clear browser storage when working with sensitive data.
+- View the seeded, explicitly labeled browser simulation for INC-001.
+- Save a reproduced failure to the regression library **before any correction exists**; update the saved test after a corrected-build comparison.
+- Export test plans, inspect execution logs, and reset the demonstration from the sidebar.
 
-## Structure
+## What still requires a physical runner
 
-```
-src/
-  types/domain.ts              Domain model (Incident, Device, FirmwareVersion, Evidence, TimelineEvent,
-                               Hypothesis, ReproductionScenario, TestExecution, ValidationResult, RegressionTest)
-  data/                        Sample data only (incidents, devices, scenarios + demo scripts, validation, regression)
-  services/api.ts              RevoraApi interface + demoApi implementation (backend seam)
-  services/execution/          ExecutionEngine interface + DemoExecutionEngine
-  state/                       Workspace store (reducer + context), workflow progress
-  hooks/useExecution.ts        Engine-agnostic run/stop/stream state
-  components/
-    layout/                    DashboardLayout, SidebarNavigation
-    investigation/             InvestigationTable, WorkflowStepper, EventTimeline, EvidencePanel (EvidenceUploader), AnalysisFindings
-    repro/                     ReproductionScenario, ExecutionControls, ExecutionConsole, EnvironmentPanel, ReproductionOutcome
-    validation/                ValidationComparison
-    ui/                        Primitives, CodeBlock
-  pages/                       Overview, Investigations, InvestigationDetail, LabIndex, ReproductionLab,
-                               FixValidation, RegressionLibrary, RegressionDetail, Devices, Settings, Roadmap
+There is no ESP32 or controllable access point attached to this repo. **Real execution is not available without external hardware and a backend.** To enable the fail-closed HTTP adapter, set:
+
+```bash
+VITE_REVORA_RUNNER_URL=http://localhost:8000 npm run dev
 ```
 
-## What is real vs. simulated
+This changes the execution engine from `DemoExecutionEngine` to `HttpExecutionEngine`. The browser sends a JSON `POST /executions` request with this structure:
 
-| Real (works in the browser) | Simulated / sample |
-|---|---|
-| Navigation, filtering, search | All incidents, devices, logs, findings |
-| File upload: read, validated (.log/.txt/.json, 5 MB), line-counted, previewed — held in memory only | "AI" findings and generated scenario (pre-authored for INC-001) |
-| Workflow state across pages (generate → reproduce → validate → save) | Test execution (scripted replay with a simulated clock) |
-| Test code view / export, diff view | Proposed correction (PR #214) and comparison results |
-| Reset demo (Settings) | Integrations (all "Not connected"), QEMU/HIL (planned) |
+```json
+{
+  "scenario": {
+    "id": "candidate-INC-EXAMPLE",
+    "incidentId": "INC-EXAMPLE",
+    "testName": "mqtt_recovery_inc_example",
+    "steps": [],
+    "testCode": "{ \"schema\": \"revora-hil-scenario/v1\" }",
+    "codeFormat": "json",
+    "reviewed": true
+  },
+  "variant": "original",
+  "firmwareRef": "exact-firmware-commit"
+}
+```
 
-State is in memory; a page reload resets the demo.
+The actual `scenario` object includes the full typed `ReproductionScenario` with environment, timeline references, assertion thresholds, and fault details; the example above is abbreviated. The runner must return a `TestExecution` object (see `src/types/domain.ts`) with:
 
-## Backend needed for real firmware testing
+- Matching `scenarioId`, `variant` and `firmwareRef`.
+- `verdict`: `failed` when a genuine recovery assertion fails, `passed` when it succeeds, or `aborted`.
+- `interpretation`: `target_failure_reproduced`, `target_not_reproduced`, `recovery_verified`, or `aborted`, consistently with the verdict and variant.
+- `stepResults` with observed per-step outcomes; `log` with **actual** serial/broker evidence.
+- Ideally `measurements`: `boardId`, `brokerMessagesReceived`, `recoveryTimeMs`, `attempts`, `reproducedAttempts`, and references to serial/MQTT capture artifacts.
 
-- **Ingestion service** — incident import (support/issue tracker), evidence storage (object store), log parsing into `TimelineEvent`s (ESP-IDF log format, coredumps, reset reasons).
-- **Source integration** — GitHub/GitLab app to fetch firmware at a tag/commit; build metadata (sdkconfig, IDF version).
-- **Analysis service** — LLM + rules over logs/source producing `Finding`s with evidence references; hypotheses stay unverified until a run confirms them.
-- **Scenario generator** — emits Unity test cases against a harness API (`net_sim`, `mqtt_broker_sim`, `clock_sim`).
-- **Test runner** — sandboxed workers that build the app component for a Linux host target (ESP-IDF `linux` target / CMock-style mocks) or run the full image in Espressif QEMU; later HIL rigs. Streams step/log events.
-- **Execution API** — `POST /executions`, events over SSE/WebSocket mapped to `ExecutionListener` (`onStepStart`, `onLog`, `onStepComplete`, `onComplete`). Implement `ExecutionEngine` and pass it via `RevoraApi.executionEngine`.
-- **Persistence** — Postgres for incidents/scenarios/executions/regression tests; artifact storage for logs and test files.
-- **CI hook** — run the regression library on every firmware build.
+For completed (non-aborted) runs, the adapter **requires** `measurements.boardId`, `measurements.brokerMessagesReceived` and `measurements.brokerCaptureArtifact`. A failed run must identify a failed assertion step, and a passing run must pass every assertion step. Infrastructure errors must be reported as HTTP errors, **never as a reproduced bug**.
 
-To swap in a backend, implement `RevoraApi` (see the REST mapping in `src/services/api.ts`) and replace `demoApi` in `src/main.tsx`.
+If the runner is absent or returns an error, the dashboard displays a **runner error**. It does not substitute a successful scripted run. The external service must handle CORS for the dashboard's origin and must authenticate or bind to localhost rather than allowing arbitrary clients to control hardware.
+
+### The first real hardware experiment
+
+Use a physical ESP32, a controlled access point, a real MQTT broker with an **independent subscriber**, and a test runner that:
+
+1. Flashes/identifies the precise original firmware build and captures serial output.
+2. Observes a baseline MQTT publication at the broker.
+3. Disables the AP for the approved outage duration, then restores it.
+4. Waits for IP acquisition, then measures whether the **broker receives telemetry** before the approved deadline.
+5. Reports raw serial and broker observations, actual assertion results and repeated-run statistics.
+6. Repeats the same scenario on a corrected firmware build when one is supplied.
+
+Use a no-fault control run as well. A test that fails even without the fault is not evidence of reproducing a specific issue. Report the reproducibility rate `k/N`, not just one green/red badge.
+
+**The external runner, flashing implementation, hardware automation, actual AI scenario generation and source-code integration are still to be built.** This project now provides a focused frontend and a clearly defined integration contract; it does not claim these systems exist.
+
+## Product scope
+
+The navigation is deliberately limited to Overview, Investigations, Reproduction Lab and Regression Library. Device context is shown with the originating incident. There is no fleet OTA, formal-verification control panel, generic device inventory, unrelated roadmap or placeholder integration settings.
+
+The MVP success criterion is not a polished demo: **a previously unseen real incident yields a reviewed scenario that demonstrably fails on the original firmware, passes on a corrected build, and can be rerun as a regression test**. Customer interviews should establish whether this materially reduces time-to-reproduction over existing workflows.

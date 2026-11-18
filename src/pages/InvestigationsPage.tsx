@@ -1,8 +1,9 @@
-import { Search } from 'lucide-react'
+import { Plus, Search } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { InvestigationTable } from '../components/investigation/InvestigationTable'
-import { DemoBadge, EmptyState, PageHeader, Panel, Tabs } from '../components/ui/primitives'
+import { NewIncidentDialog } from '../components/investigation/NewIncidentDialog'
+import { Button, EmptyState, PageHeader, Panel, Tabs } from '../components/ui/primitives'
 import { useWorkspace } from '../state/context'
 import type { ReproductionStatus } from '../types/domain'
 
@@ -20,6 +21,7 @@ export function InvestigationsPage() {
   const [params, setParams] = useSearchParams()
   const filter = (params.get('status') as Filter) ?? 'all'
   const [q, setQ] = useState('')
+  const [createOpen, setCreateOpen] = useState(false)
 
   const rows = useMemo(() => {
     const term = q.trim().toLowerCase()
@@ -38,10 +40,11 @@ export function InvestigationsPage() {
   return (
     <div className="animate-in">
       <PageHeader
-        eyebrow={<DemoBadge />}
         title="Investigations"
-        subtitle="Customer-reported firmware failures and the evidence collected for each. Open one to analyze logs and generate a reproduction."
+        subtitle="Customer-reported firmware failures. Create an investigation, attach logs, and develop a repeatable test candidate."
+        actions={<Button variant="primary" icon={<Plus className="size-4" />} onClick={() => setCreateOpen(true)}>New investigation</Button>}
       />
+      <NewIncidentDialog open={createOpen} onClose={() => setCreateOpen(false)} />
       <Panel bodyClassName="">
         <div className="flex flex-col gap-3 border-b border-line px-4 py-3 md:flex-row md:items-center md:justify-between">
           <div className="overflow-x-auto">
