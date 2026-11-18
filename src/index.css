@@ -1,0 +1,95 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', 'Inter var', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
+
+  --color-canvas: #070b14;
+  --color-surface: #0b111d;
+  --color-raised: #0f1726;
+  --color-hover: #142036;
+  --color-line: #1a2436;
+  --color-line-strong: #24314a;
+  --color-fg: #e5eaf2;
+  --color-muted: #8d99ad;
+  --color-faint: #5d687c;
+  --color-accent: #38bdf8;
+  --color-accent-strong: #0ea5e9;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-canvas text-fg font-sans antialiased;
+    font-feature-settings: 'cv11', 'ss01', 'tnum';
+  }
+  ::selection {
+    background: rgb(56 189 248 / 0.3);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #24314a transparent;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-line bg-surface;
+  }
+  .label {
+    @apply text-[11px] font-medium uppercase tracking-[0.08em] text-faint;
+  }
+  .mono {
+    @apply font-mono text-[12.5px];
+  }
+}
+
+@keyframes rv-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-in {
+  animation: rv-fade-in 220ms ease-out both;
+}
+
+@keyframes rv-pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgb(56 189 248 / 0.45);
+  }
+  100% {
+    box-shadow: 0 0 0 6px rgb(56 189 248 / 0);
+  }
+}
+.pulse-ring {
+  animation: rv-pulse-ring 1.4s ease-out infinite;
+}
+
+.hatch {
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgb(244 63 94 / 0.28) 0 4px,
+    transparent 4px 8px
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-in,
+  .pulse-ring {
+    animation: none;
+  }
+}

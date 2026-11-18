@@ -1,0 +1,221 @@
+import clsx from 'clsx'
+import { AlertTriangle, Archive, CheckCircle2, FileDiff, GitBranch, GitCommitHorizontal, Library, Lock, Play, ShieldCheck, Square } from 'lucide-react'
+import { useState } from 'react'
+import { useParams } from 'react-router-dom'
+import { ExecutionConsole } from '../components/repro/ExecutionConsole'
+import { CodeBlock } from '../components/ui/CodeBlock'
+import { Button, DemoBadge, EmptyState, LinkButton, Panel } from '../components/ui/primitives'
+import { ValidationComparison } from '../components/validation/ValidationComparison'
+import { useExecution } from '../hooks/useExecution'
+import { useWorkspace } from '../state/context'
+import type { TestExecution } from '../types/domain'
+import { LabHeader } from './ReproductionLabPage'
+
+export function FixValidationPage() {
+  const { incidentId = '' } = useParams()
+  const ws = useWorkspace()
+  const { incidents, scenarios, validations, progress, executions, regressionTests, api } = ws
+  const incident = incidents.find((i) => i.id === incidentId)
+  const scenario = scenarios.find((s) => s.id === incident?.scenarioId)
+  const validation = validations.find((v) => v.scenarioId === scenario?.id)
+  const seeded = scenario ? executions[scenario.id] : undefined
+  const orig = useExecution(api.executionEngine, seeded?.corrected ? seeded.original : undefined)
+  const corr = useExecution(api.executionEngine, seeded?.corrected)
+  const [showDiff, setShowDiff] = useState(true)
+
+  if (!incident) return <EmptyState title={`Incident ${incidentId} not found`} />
+  if (!scenario || !validation) {
+    return (
+      <div className="animate-in">
+        <LabHeader incident={incident} />
+        <Panel>
+          <EmptyState title="No proposed correction to validate yet" />
+        </Panel>
+      </div>
+    )
+  }
+
+  const prog = progress[incident.id]
+  const reproduced = prog.reproduction === 'reproduced'
+  const running = orig.state.status === 'running' || corr.state.status === 'running'
+  const regression = regressionTests.find((t) => t.name === scenario.testName)
+
+  const runBoth = () => {
+    const results: Partial<Record<'original' | 'corrected', TestExecution>> = {}
+    const settle = (e: TestExecution) => {
+      results[e.variant] = e
+      ws.recordExecution(incident.id, e)
+      if (results.original && results.corrected) {
+        const ok =
+          results.original.interpretation === 'target_failure_reproduced' && results.corrected.interpretation === 'recovery_verified'
+        if (results.original.verdict !== 'aborted' && results.corrected.verdict !== 'aborted') ws.completeValidation(incident.id, validation.id, ok)
+      }
+    }
+    orig.run({ scenario, variant: 'original', firmwareRef: validation.originalRef }, settle)
+    corr.run({ scenario, variant: 'corrected', firmwareRef: validation.correctionRef }, settle)
+  }
+  const stopBoth = () => {
+    orig.stop()
+    corr.stop()
+  }
+
+  const validated = validation.status === 'validated' && orig.state.status === 'done' && corr.state.status === 'done'
+  const stepsDone = (r: Record<string, unknown>) => Object.keys(r).length / scenario.steps.length
+
+  return (
+    <div className="animate-in">
+      <LabHeader incident={incident} />
+
+      {!reproduced && (
+        <div className="mb-5 flex flex-col gap-3 rounded-lg border border-amber-400/25 bg-amber-400/5 p-4 sm:flex-row sm:items-center">
+          <Lock className="size-4 shrink-0 text-amber-300" />
+          <p className="flex-1 text-[13px] text-amber-100/90">
+            Run the reproduction first. A correction can only be evaluated against a test that is known to fail on the original firmware in the same way as the field incident.
+          </p>
+          <LinkButton to={`/lab/${incident.id}`} variant="secondary">
+            Go to reproduction
+          </LinkButton>
+        </div>
+      )}
+
+      <div className="mb-5 grid gap-4 lg:grid-cols-2">
+        {(
+          [
+            { key: 'original', title: 'Original Firmware', ref: validation.originalRef, icon: GitCommitHorizontal, exec: orig },
+            { key: 'corrected', title: 'Corrected Firmware', ref: validation.correctionRef, icon: GitBranch, exec: corr },
+          ] as const
+        ).map(({ key, title, ref, icon: Icon, exec }) => {
+          const e = exec.state.execution
+          return (
+            <Panel
+              key={key}
+              title={title}
+              subtitle={<span className="mono">{ref}</span>}
+              icon={<Icon className="size-4" />}
+              actions={
+                e && exec.state.status === 'done' ? (
+                  <span
+                    className={clsx(
+                      'rounded px-1.5 py-0.5 text-[11px] font-medium',
+                      e.interpretation === 'target_failure_reproduced' ? 'bg-rose-500/15 text-rose-300' : 'bg-emerald-400/10 text-emerald-300',
+                    )}
+                  >
+                    {e.interpretation === 'target_failure_reproduced' ? 'Failure reproduced' : 'Recovery verified'}
+                  </span>
+                ) : undefined
+              }
+              bodyClassName="p-3"
+            >
+              <ExecutionConsole
+                log={exec.state.log}
+                status={exec.state.status}
+                progress={stepsDone(exec.state.results)}
+                height="h-[190px]"
+                title={key === 'original' ? 'original · demo simulation' : 'corrected · demo simulation'}
+                resultTone={key === 'original' ? 'reproduced' : 'pass'}
+              />
+            </Panel>
+          )
+        })}
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="flex min-w-0 flex-col gap-5">
+          <Panel
+            title="Test execution results"
+            subtitle={`${scenario.testName} · same scenario, two firmware builds`}
+            icon={<ShieldCheck className="size-4" />}
+            bodyClassName=""
+            actions={
+              <>
+                <DemoBadge>Sample data</DemoBadge>
+                {running ? (
+                  <Button variant="danger" size="sm" onClick={stopBoth} icon={<Square className="size-3" />}>
+                    Stop
+                  </Button>
+                ) : (
+                  <Button variant="primary" size="sm" onClick={runBoth} disabled={!reproduced} icon={<Play className="size-3.5" />}>
+                    {orig.state.status === 'idle' ? 'Run comparison' : 'Re-run comparison'}
+                  </Button>
+                )}
+              </>
+            }
+          >
+            <ValidationComparison checks={validation.checks} original={orig.state.results} corrected={corr.state.results} running={running} />
+          </Panel>
+
+          <Panel
+            title="Proposed correction"
+            subtitle={validation.correctionSummary}
+            icon={<FileDiff className="size-4" />}
+            actions={
+              <Button size="sm" variant="ghost" onClick={() => setShowDiff((s) => !s)}>
+                {showDiff ? 'Hide diff' : 'Show diff'}
+              </Button>
+            }
+          >
+            {showDiff && <CodeBlock code={validation.correctionDiff} language="diff" maxHeight="max-h-[360px]" />}
+            <p className="mt-3 text-[11.5px] text-faint">Correction reference only — authored by the firmware team in this sample, not generated or applied by Revora.</p>
+          </Panel>
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-5">
+          <Panel title="Validation status" icon={<CheckCircle2 className="size-4" />}>
+            {validated ? (
+              <div className="animate-in">
+                <div className="mb-2 flex items-center gap-2 text-[15px] font-semibold text-emerald-200">
+                  <CheckCircle2 className="size-5 text-emerald-300" /> Correction passes the reproduction
+                </div>
+                <p className="text-[12.5px] leading-relaxed text-muted">
+                  Original firmware fails the recovery assertion; the corrected build passes all {scenario.steps.length} steps. MQTT session recovery and telemetry publication now succeed after Wi-Fi restoration.
+                </p>
+              </div>
+            ) : validation.status === 'not_validated' && !running ? (
+              <p className="text-[13px] text-rose-300">The corrected build did not pass the scenario.</p>
+            ) : (
+              <p className="text-[13px] text-muted">{running ? 'Running both builds…' : 'Not run. Run the comparison to evaluate the proposed correction.'}</p>
+            )}
+            <div className="mt-4 flex gap-2 rounded-md border border-line bg-raised/50 p-2.5 text-[11.5px] leading-snug text-muted">
+              <AlertTriangle className="mt-px size-3.5 shrink-0 text-amber-300" />
+              <span>{validation.scopeNote}</span>
+            </div>
+          </Panel>
+
+          <Panel title="Regression artifact" icon={<Archive className="size-4" />}>
+            <div className="mb-3 rounded-md border border-line bg-raised/50 p-3">
+              <div className="mono text-[12.5px] text-fg">{scenario.testName}</div>
+              <div className="mt-0.5 text-[11.5px] text-faint">
+                test_{scenario.testName}.c · originates from {incident.id} · {scenario.steps.length} steps
+              </div>
+            </div>
+            {prog.regressionSaved && regression ? (
+              <div className="flex flex-col gap-2">
+                <p className="flex items-center gap-1.5 text-[12.5px] text-emerald-300">
+                  <CheckCircle2 className="size-4" /> Saved to the Regression Library
+                </p>
+                <LinkButton to={`/regression/${regression.id}`} icon={<Library className="size-4" />}>
+                  View in library
+                </LinkButton>
+              </div>
+            ) : (
+              <>
+                <Button
+                  variant="primary"
+                  className="w-full"
+                  disabled={!validated}
+                  onClick={() => ws.saveRegression(incident.id, scenario.testName, validation.correctionRef)}
+                  icon={<Library className="size-4" />}
+                >
+                  Save as regression test
+                </Button>
+                <p className="mt-2 text-[11.5px] text-faint">
+                  {validated ? 'Preserves the test so future firmware releases are checked against this failure.' : 'Available once the correction passes the comparison.'}
+                </p>
+              </>
+            )}
+          </Panel>
+        </div>
+      </div>
+    </div>
+  )
+}

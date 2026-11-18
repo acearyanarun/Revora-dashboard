@@ -1,0 +1,197 @@
+import type { Incident, TimelineEvent } from '../types/domain'
+
+/**
+ * DEMONSTRATION DATA — representative incidents for the prototype.
+ * Log lines are written in ESP-IDF log format for realism; they are not
+ * captured from real customer devices.
+ */
+
+const inc001Timeline: TimelineEvent[] = [
+  {
+    id: 'ev-01', t: 0, timestamp: '10:00:00', label: 'Wi-Fi Connected', lane: 'wifi', severity: 'success', source: 'device.log:1412',
+    raw: ['I (184200) wifi:connected with HomeNet-5G, aid = 3, channel 36, BW20, bssid = 7c:10:c9:4e:22:a1', 'I (184203) wifi:security: WPA2-PSK, phy: 11ac, rssi: -61'],
+  },
+  {
+    id: 'ev-02', t: 1, timestamp: '10:00:01', label: 'IP Address Acquired', lane: 'ip', severity: 'success', source: 'device.log:1415',
+    raw: ['I (185211) esp_netif_handlers: sta ip: 192.168.1.42, mask: 255.255.255.0, gw: 192.168.1.1'],
+  },
+  {
+    id: 'ev-03', t: 2, timestamp: '10:00:02', label: 'MQTT Connected', lane: 'mqtt', severity: 'success', source: 'device.log:1419',
+    raw: ['I (186034) mqtt_client: Sending MQTT CONNECT message, type: 1, id: 0000', 'I (186301) energy_app: MQTT_EVENT_CONNECTED session_present=0 broker=mqtts://ingest.example.io:8883'],
+  },
+  {
+    id: 'ev-04', t: 7, timestamp: '10:00:07', label: 'Telemetry Published Successfully', lane: 'telemetry', severity: 'success', source: 'device.log:1427',
+    raw: ['I (191305) energy_app: publish ok topic=em200/7f3a/power msg_id=1832 qos=1 len=148', 'I (191388) energy_app: MQTT_EVENT_PUBLISHED msg_id=1832'],
+  },
+  {
+    id: 'ev-05', t: 15, timestamp: '10:00:15', label: 'Wi-Fi Disconnected', lane: 'wifi', severity: 'warning', source: 'device.log:1433',
+    raw: ['W (199412) wifi:state: run -> init (0xc800)', 'I (199414) energy_app: WIFI_EVENT_STA_DISCONNECTED reason=200 (BEACON_TIMEOUT)', 'I (199415) energy_app: scheduling wifi reconnect in 10000 ms'],
+  },
+  {
+    id: 'ev-06', t: 25, timestamp: '10:00:25', label: 'Wi-Fi Reconnected', lane: 'wifi', severity: 'success', source: 'device.log:1440',
+    raw: ['I (209420) wifi:connected with HomeNet-5G, aid = 3, channel 36, BW20, bssid = 7c:10:c9:4e:22:a1'],
+  },
+  {
+    id: 'ev-07', t: 26, timestamp: '10:00:26', label: 'IP Address Acquired', lane: 'ip', severity: 'success', source: 'device.log:1442',
+    raw: ['I (210433) esp_netif_handlers: sta ip: 192.168.1.42, mask: 255.255.255.0, gw: 192.168.1.1', 'I (210434) energy_app: IP_EVENT_STA_GOT_IP — resuming telemetry loop'],
+  },
+  {
+    id: 'ev-08', t: 31, timestamp: '10:00:31', label: 'MQTT Publish Failed', lane: 'telemetry', severity: 'failure', source: 'device.log:1447',
+    raw: ['E (215437) transport_base: tcp_write error, errno=Software caused connection abort', 'E (215438) mqtt_client: esp_mqtt_client_publish(): Writing failed', 'W (215439) energy_app: publish failed rc=-1 topic=em200/7f3a/power'],
+  },
+  {
+    id: 'ev-09', t: 36, timestamp: '10:00:36', label: 'MQTT Publish Failed', lane: 'telemetry', severity: 'failure', source: 'device.log:1451',
+    raw: ['E (220441) transport_base: tcp_write error, errno=Software caused connection abort', 'W (220442) energy_app: publish failed rc=-1 topic=em200/7f3a/power'],
+  },
+  {
+    id: 'ev-10', t: 41, timestamp: '10:00:41', label: 'MQTT Publish Failed', lane: 'telemetry', severity: 'failure', source: 'device.log:1455',
+    raw: ['E (225446) transport_base: tcp_write error, errno=Software caused connection abort', 'W (225447) energy_app: publish failed rc=-1 topic=em200/7f3a/power', 'W (225448) energy_app: 3 consecutive publish failures; no MQTT_EVENT_DISCONNECTED observed'],
+  },
+]
+
+export const incidents: Incident[] = [
+  {
+    id: 'INC-001',
+    title: 'Device reconnects to Wi-Fi but fails to restore MQTT communication',
+    deviceId: 'dev-energy-monitor',
+    firmwareVersion: 'v1.4.2',
+    framework: 'ESP-IDF',
+    failureCategory: 'Connectivity Recovery',
+    failureMode: 'MQTT Recovery Failure',
+    customerSymptom: 'The device reconnects to Wi-Fi after an outage, but it stops sending energy measurements until restarted.',
+    firstReportedAt: '2026-11-12',
+    updatedAt: '2026-11-18T08:42:00Z',
+    status: 'ready_for_reproduction',
+    reportCount: 4,
+    scenarioId: 'scn-mqtt-recovery',
+    evidence: [
+      { id: 'evd-1', kind: 'device_log', name: 'em200-7f3a-serial.log', source: 'sample', sizeBytes: 48_213, lineCount: 1_502, addedAt: '2026-11-13', note: 'UART capture provided by support, ~6 min window around outage' },
+      { id: 'evd-2', kind: 'firmware_source_ref', name: 'github.com/example-co/em200-firmware @ v1.4.2', source: 'reference', addedAt: '2026-11-13', note: 'Reference only — repository was not cloned or analyzed' },
+      { id: 'evd-3', kind: 'customer_report', name: 'Support ticket #58213', source: 'sample', addedAt: '2026-11-12', preview: 'After the router rebooted overnight, the app shows the monitor online but no readings since 02:14. Unplugging it fixes it.' },
+      { id: 'evd-4', kind: 'device_config', name: 'sdkconfig.em200.json', source: 'sample', sizeBytes: 6_402, addedAt: '2026-11-13', preview: '{ "CONFIG_MQTT_PROTOCOL_311": true, "CONFIG_MQTT_SKIP_RECONNECT_ON_NET_ERR": false, "CONFIG_ESP_WIFI_STA_DISCONNECTED_PM_ENABLE": true }' },
+      { id: 'evd-5', kind: 'network_events', name: 'router-syslog-excerpt.txt', source: 'sample', sizeBytes: 2_118, lineCount: 37, addedAt: '2026-11-14', note: 'Customer router log: WLAN radio restart at 02:13:58' },
+    ],
+    timeline: inc001Timeline,
+    timelineWindow: { start: '10:00:00', seconds: 45 },
+    laneSegments: [
+      { lane: 'wifi', from: 0, to: 15, state: 'up' },
+      { lane: 'wifi', from: 15, to: 25, state: 'down', label: 'Outage · 10 s' },
+      { lane: 'wifi', from: 25, to: 45, state: 'up' },
+      { lane: 'ip', from: 1, to: 15, state: 'up' },
+      { lane: 'ip', from: 15, to: 26, state: 'down' },
+      { lane: 'ip', from: 26, to: 45, state: 'up' },
+      { lane: 'mqtt', from: 2, to: 15, state: 'up' },
+      { lane: 'mqtt', from: 15, to: 45, state: 'unknown', label: 'No reconnect or disconnect event logged' },
+    ],
+    findings: [
+      { id: 'f-o1', kind: 'observed', statement: 'Wi-Fi connectivity was successfully restored.', evidenceRefs: ['ev-06', 'ev-07'] },
+      { id: 'f-o2', kind: 'observed', statement: 'MQTT publishing did not recover after the network returned.', evidenceRefs: ['ev-08'] },
+      { id: 'f-o3', kind: 'observed', statement: 'The device continued reporting publication failures; no MQTT disconnect event was logged.', evidenceRefs: ['ev-09', 'ev-10'] },
+      { id: 'f-h1', kind: 'hypothesis', statement: 'MQTT reconnection logic did not execute after IP re-acquisition.', verification: 'testable' },
+      { id: 'f-h2', kind: 'hypothesis', statement: 'The MQTT client retained an invalid connection state across the outage.', verification: 'testable' },
+      { id: 'f-h3', kind: 'hypothesis', statement: 'An existing network socket was not reinitialized after the interface came back.', verification: 'unverified' },
+      { id: 'f-m1', kind: 'missing', statement: 'MQTT client internal state after network restoration.' },
+      { id: 'f-m2', kind: 'missing', statement: 'Broker-side reconnection and session events for client em200-7f3a.' },
+    ],
+  },
+  {
+    id: 'INC-002',
+    title: 'Sensor stops reporting after intermittent network timeouts',
+    deviceId: 'dev-env-sensor',
+    firmwareVersion: 'v2.1.0',
+    framework: 'ESP-IDF',
+    failureCategory: 'Network Timeout',
+    failureMode: 'Network Timeout',
+    customerSymptom: 'Readings arrive late or not at all on a congested office network.',
+    firstReportedAt: '2026-11-15',
+    updatedAt: '2026-11-17T19:10:00Z',
+    status: 'insufficient_evidence',
+    reportCount: 2,
+    evidence: [
+      { id: 'evd-21', kind: 'customer_report', name: 'Support ticket #58377', source: 'sample', addedAt: '2026-11-15', preview: 'Dashboard shows gaps of 10–40 minutes during work hours.' },
+    ],
+    timeline: [],
+    findings: [
+      { id: 'f2-m1', kind: 'missing', statement: 'Device logs covering a reporting gap.' },
+      { id: 'f2-m2', kind: 'missing', statement: 'Network configuration (AP model, band steering settings).' },
+    ],
+  },
+  {
+    id: 'INC-003',
+    title: 'Controller remains offline after AP channel change',
+    deviceId: 'dev-controller',
+    firmwareVersion: 'v1.8.3',
+    framework: 'ESP-IDF',
+    failureCategory: 'Connectivity Recovery',
+    failureMode: 'Connection Recovery',
+    customerSymptom: 'After the router switched channels, the controller stayed offline until power-cycled.',
+    firstReportedAt: '2026-10-28',
+    updatedAt: '2026-11-09T16:25:00Z',
+    status: 'reproduction_confirmed',
+    reportCount: 7,
+    evidence: [
+      { id: 'evd-31', kind: 'device_log', name: 'cc10-a91e-serial.log', source: 'sample', sizeBytes: 31_552, lineCount: 988, addedAt: '2026-10-29' },
+      { id: 'evd-32', kind: 'customer_report', name: 'Support ticket #57402', source: 'sample', addedAt: '2026-10-28' },
+    ],
+    timeline: [],
+    findings: [
+      { id: 'f3-c1', kind: 'confirmed', statement: 'Reproduced in host harness: reconnect loop stops retrying after 5 attempts when the AP changes channel (test wifi_reconnect_after_channel_change).' },
+    ],
+  },
+  {
+    id: 'INC-004',
+    title: 'DHCP lease renewal fails after 24h uptime',
+    deviceId: 'dev-energy-monitor',
+    firmwareVersion: 'v1.4.0',
+    framework: 'ESP-IDF',
+    failureCategory: 'Connectivity Recovery',
+    failureMode: 'DHCP Renewal',
+    customerSymptom: 'Device drops offline roughly once a day and comes back after several minutes.',
+    firstReportedAt: '2026-11-10',
+    updatedAt: '2026-11-17T22:03:00Z',
+    status: 'in_analysis',
+    reportCount: 3,
+    evidence: [
+      { id: 'evd-41', kind: 'device_log', name: 'em200-11c2-serial.log', source: 'sample', sizeBytes: 120_840, lineCount: 4_210, addedAt: '2026-11-11' },
+    ],
+    timeline: [],
+    findings: [{ id: 'f4-o1', kind: 'observed', statement: 'Lease renewal request is sent; no ACK logged before lease expiry.' }],
+  },
+  {
+    id: 'INC-005',
+    title: 'TLS handshake timeout after AP roaming',
+    deviceId: 'dev-smart-plug',
+    firmwareVersion: 'v3.0.1',
+    framework: 'Arduino-ESP32',
+    failureCategory: 'Secure Transport',
+    failureMode: 'TLS Handshake Timeout',
+    customerSymptom: 'Plug becomes unresponsive in the app after moving between mesh nodes.',
+    firstReportedAt: '2026-11-03',
+    updatedAt: '2026-11-14T11:47:00Z',
+    status: 'reproduction_failed',
+    reportCount: 2,
+    evidence: [{ id: 'evd-51', kind: 'device_log', name: 'sp1-0042.log', source: 'sample', sizeBytes: 9_120, lineCount: 301, addedAt: '2026-11-04' }],
+    timeline: [],
+    findings: [
+      { id: 'f5-o1', kind: 'observed', statement: 'Candidate scenario ran 3 times; handshake completed every run. Field failure not reproduced.' },
+      { id: 'f5-m1', kind: 'missing', statement: 'Mesh roaming timings (802.11r/k/v enabled?).' },
+    ],
+  },
+  {
+    id: 'INC-006',
+    title: 'Unexpected reset during Wi-Fi transmit burst',
+    deviceId: 'dev-env-sensor',
+    firmwareVersion: 'v2.0.4',
+    framework: 'ESP-IDF',
+    failureCategory: 'Power / Reset',
+    failureMode: 'Brownout Reset',
+    customerSymptom: 'Device reboots a few times a day when powered from a USB hub.',
+    firstReportedAt: '2026-11-17',
+    updatedAt: '2026-11-17T15:30:00Z',
+    status: 'awaiting_evidence',
+    reportCount: 1,
+    evidence: [],
+    timeline: [],
+    findings: [{ id: 'f6-m1', kind: 'missing', statement: 'Reset reason (esp_reset_reason) and serial log around a reboot.' }],
+  },
+]
